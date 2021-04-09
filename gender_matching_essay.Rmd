@@ -1,0 +1,632 @@
+---
+mainfont: Arial
+output:
+  pdf_document: 
+    latex_engine: xelatex
+geometry:  paperheight=27.94cm,paperwidth=21.59cm,left=30mm, right=30mm, top=25mm, bottom=25mm, asymmetric
+fontsize: 11pt
+bibliography: ENIF.bib
+csl: "mi_chicago.csl"
+header-includes :
+  \usepackage{geometry}
+  \usepackage{graphicx}
+  \usepackage{floatrow}
+   \floatsetup[figure]{capposition=top}
+  \floatsetup[table]{capposition=top}
+  \floatplacement{figure}{H}
+  \floatplacement{table}{H}
+  \tolerance=1
+  \emergencystretch=\maxdimen
+  \hyphenpenalty=10000
+  \hbadness=10000
+  \linespread{1.15}
+  \usepackage{titling}
+  \usepackage[spanish]{babel}
+  \usepackage{setspace}
+
+---
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, comment = NA, message = FALSE, warning=FALSE)
+```
+
+
+
+```{r, include=FALSE}
+packages <- c(
+  "MatchIt",
+  "dplyr",
+  'stargazer',
+  'foreign',
+  'fastDummies',
+  'RCT',
+  'kableExtra'
+  )
+
+# instala los que no tengas
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# cargar paquetes
+lapply(packages,
+       library,
+       character.only = TRUE)
+
+```
+
+
+\begingroup
+\fontsize{24}{50}\selectfont
+**¿Brecha de género o sesgo por variables omitidas? - Un análisis con métodos cuasiexperimentales sobre la inclusión financiera en México**
+\endgroup
+
+**Resumen ejecutivo**
+\begin{spacing}{1} En este ensayo se hace un análisis de la ENIF 2018 desde un enfoque de métodos cuasiexperimentales con el fin de detectar sesgos en la encuesta y de cuantificar el efecto de la discriminación de género en la inclusión financiera. Debido a que la diferencia de medias simple en indicadores financieros entre ambos sexos tiene el potencial de sobrestimar el efecto de la discriminación, se empleo la técnica de matching, o pareo, para producir estimaciones con menor sesgo en cuanto a la diferencia por género en tenencia de una cuenta bancaria, fondo para el retiro, algún seguro y crédito o tarjeta de crédito. En primer lugar, se encontró que existe un menos-reporte de respuestas por parte de personas rezagadas financieramente, de los cuáles el 75\% corresponde a mujeres. En segundo lugar, se encontró que el género es todavía un factor determinante en el acceso a servicios y productos financieros, en particual, la diferencia es grande en cuanto a tenencia de un fondo para el retiro, sin embargo la diferencia de medias simple en casi todos los casos sobrestimó el efecto de la discriminación atribuible al sector financiero. Ambos son hallazgos importantes a considerar para los investigadores interesados en sesgos muestrales; aquellos que trabajen con modelos econométricos estimados a partir de la ENIF 2018; estudiantes, investigadores y demás ususarios de la encuesta; y, finalmente, para aquellos que estén a cargo de las estrategias en la inclusión financiera con perspectiva de género. En la medida en que otros factores determinantes en la inclusión financiera estén previamente relacionadas con el género, una diferencia de medias simple estaría subestimando o sobrestimando el efecto real de la discriminación, o dicho de otra manera, no se estaría identificando al efecto de la discriminación atribuible exclusivamente al sistema financiero sino que se estarían mezclando otros factores de índole estructural y en las cuales el sistema financiero tiene capacidad limitada de incidencia. Identificar en cuales variables el efecto real de la discriminación es mayor y en cuales menor permitirá concentrar esfuerzos en aquellas áreas donde el potencial de incidencia es mayor.
+
+\end{spacing}
+
+**Palabras clave** 
+
+*género, discriminación, causalidad, sesgo, métodos cuasiexperimentales*
+
+
+**Número de palabras totales:**
+
+2,434
+
+\newpage
+\tableofcontents
+\newpage
+
+
+# Introducción
+
+Es bien reconocido que es difícil obtener estimaciones insesgadas sobre la brecha de género en inclusión financiera debido a la calidad de los datos disponibles, la falta de comparabilidad entre los datos de cada país (incluso dentro de cada país) y debido al poco conocimiento que existe de métodos adecuados[@inegis]. Uno de los estimadores más populares[@enif] es la simple diferencia de medias entre hombres y mujeres en variables relacionadas con la inclusión, la cuál tiene el potencial de ser un indicador del efecto real de la discriminación (o como se conoce en estadística, un estimador insesgado) siempre y cuando otros factores que pudieran afectar a los promedios no estén previamente relacionados con el género[@Angrist2008].
+
+Es decir, la discriminación sería completamente atribuible al sector financiero siempre y cuando un hombre y una mujer con caracterísitcas similares (por ejemplo, mismo ingreso y escolaridad) tengan un acceso diferenciado a una cuenta bancaria, una tarjeta de crédito, un fondo para el retiro, un seguro, etc. En la medida en que otros factores determinantes en la inclusión financiera esten previamente relacionadas con el sexo, se estaría subestimando o sobrestimando el efecto real de la discriminación, o dicho de otra manera, no se estaría identificando al efecto de la discriminación atribuible exclusivamente al sistema financiero sino que se estarían mezclando otros factores de índole estructural y en las cuales los actores del sistema financiero tienen una capacidad limitada de incidencia. 
+
+Por ejemplo, supongamos que para ser contratada en un banco es necesario contar con licenciatura terminada. Si existen más hombres que mujeres con licenciatura terminada y hacemos una comparación de medias (porcentaje de hombres contratados del total que aplican contra porcentaje de mujeres) encontraríamos que más hombres son contratados sencillamente porque son más. Sin embargo esto poco dice sobre el efecto de discriminación atribuible al banco. Supongamos que ahora comparamos el porcentaje de hombres contratados del total de hombres que aplican con licenciatura terminada frente al porcentaje de mujeres contratadas del total de mujeres con las mismas características, en este caso si la media es la misma, pues no existiría evidencia de discriminación. Por el contrario, si encontramos que el 50% de los hombres con licenciatura son contratados pero que solo el 20% de mujeres con las mismas caracterísitcas lo están, entonces sí existiría evidencia de un efecto de discriminación atribuible al banco.
+
+Este tipo de comparación se basa en dos conceptos torales de la econometría que sirven para intentar atribuir causalidad, el *ceteris paribus* o todo lo demás constante y el contrafactual. En cuanto al primero, el *ceteris paribus* implica que la comparación que estamos haciendo está logrando aislar el efecto que queremos observar de todos los efectos presentes. Por ejemplo, supongamos que queremos medir el efecto de un año más de estudios en el ingreso de las personas pero notamos que las personas con un año más también realizaron determinada certificación. En este caso, para aislar solo el efecto del año necesitaríamos buscar información de personas que hayan completado el año pero que no hayan realizado la certificación o bien que ya tenían la certificación desde antes. 
+
+El segundo, se refiere a que para poder atribuir causalidad necesitamos conocer el "qué hubiera pasado". Por ejemplo si mi hijo hubiese sido hija, ¿habría estudiado la misma licenciatura?. Evidentemente, el contrafactual necesita más imaginación y es imposible de conocer con certeza. Sin embargo, podemos tener una aproximación si comparamos grupos de personas muy similares, por ejemplo, podría darme una idea viendo la licenciatura que eligieron estudiar las mujeres que provienen de familias similares a la mia[@Angrist2008].
+
+Debido a que existen muchas brechas de género en distintos temas como educación, trabajo, salud y casi cualquier dimensión de la existencia humana[@unodp2020], se espera que cualquier diferencia de medias sobrestime el efecto real de la discriminación en la inclusión financiera. La única manera de poder saber si existe un efecto causal del ser mujer en una menor inclusión es mediante la aleatorización de la asignación del género en las personas donde dicha aleatorización lograría que la relación entre caracterísitcas previas de las personas y su sexo desaparecíera. Para esto necesitaríamos que a todas las personas hoy se les reasginara su género por ejemplo aventando una moneda, lo cual es evidentemente imposible. Sin embargo, en los últimos años la econometría  ha desarrollado métodos capaces de simular en mayor o menor medida estos escenarios. A estos métodos se les conoce como cuasiexperimentales y han estado detrás de muchos descubrimientos causales en la economía, sobretodo en temas como pobreza[@Duflo2009], educación, microfinanzas y discriminación[@Chattopadhyay2004].
+
+En temas de discriminación, los enfoques cuasiexperimentales han logrado ser muy útiles y exitosos para estimar efectos verdaderos de la discriminación además de poder identificar sesgos y sus tamaños. El ejemplo por excelencia es la investigación de Marianne Bertrand y Sendhil Mullainathan en la que intentan conocer el efecto de la discriminación racial laboral en EEUU[@Bertrand2004]. Para ello, crearon CVs ficticios, con características sociodemográficas, educativas y de competencias aleatorias; además, les asignaron de manera aleatoria un nombre ficticio, que podía ser un nombre común de persona blanca o un nombre común de persona negra; finalmente, enviaron los CVs a diferentes empresas de diferentes industrias en diferentes ciudades y contaron las llamadas de regreso que recibían para una entrevista. De esta manera, lograron que la calidad de los CVs no dependiera de la supuesta etnicidad de la persona además de que las características de los destinatarios estaban balanceadas con el fin de minimizar cualquier sesgo. Los investigadores encontraron que las personas blancas tenían 50% más de probabilidad de recibir una llamada de regreso y que dicha probabilidad era más sensible a la calidad del CV en personas blancas que en negras. Por ello, concluyen que el efecto de la discriminación es real sin embargo es mucho menor al que normalmente se estima con una diferencia de medias.
+
+# Metodología
+
+Existen métodos para asegurar o simular la aleatorización ex ante y ex post la implementación de un experimento o encuesta. Como la ENIF 2018 ya se levantó, usaremos un método ex post. En este ensayo, optaremos por usar el método llamado pareo, o *matching*, en la base de datos de la ENIF 2018 para evaluar las diferencias en promedios de variables importantes de la inclusión financiera **(tenencia de algún crédito o tarjeta de crédito, de cuenta bancaria, de algún seguro y de AFORE).** 
+
+El método consiste en primer lugar, en encontrar algunas variables que estén relacionas con la variable de interés. pero que también estén determinadas en mayor o menor medida por el sexo (por ejemplo, ingreso y educación), las cuáles tienen distribuciones diferentes para hombres y mujeres ; en segundo lugar, en que para cada mujer en la base de datos se va a encontrar al hombre más parecido en dichas características, este hombre será su "pareja"^[En nuestra especificación como queremos un *matching* lo más parecido posible, es posible que un hombre sea la pareja de varias mujeres.] (por ejemplo para una mujer con ingreso de 16,000 y con Maestría se va le va a asignar a un hombre con el mismo ingreso y mismo grado académico); finalmente, se reestima la diferencia de medias pero solamente entre el grupo de mujeres y el grupo de parejas. De esta manera, este nuevo estimador solo compara mujeres contra hombres muy similares y se minimizan los sesgos por discriminación estructural[@Abadie2016].
+
+```{r, tabla1}
+# selecciono mis variables de interés de la encuesta
+a<-c("P9_1", "P6_3", "P8_1","P5_4")
+b<-c("AFORE","Crédito","Seguro","Cuenta")
+c<-c("Tenencia de AFORE o algún fondo para el retiro","Tenencia de algún crédito o tarjeta de crédito","Tenencia de algún seguro","Tenencia de alguna cuenta bancara")
+
+c<-data.frame(a,b,c)
+
+kable(c,booktabs=T, col.names = c("ENIF", "Variable","Descripción"),  digits = 2,caption= "Variables de inclusión financiera")
+```
+
+En cuanto a las variables que se eligieron para emparejar están principalmente aquellas pertenecientes a las secciones I,II y III referentes a características sociodemográficas del hogar y la persona entrevistada de la ENIF  (y algunas variables de las demás secciones relevantes a comportamiento financieros). Esto es lo ideal pues en los métodos cuasiexperimentales siempre es preferible crear controles con base en datos basales[@Abadie2016]. Es decir, la pareja de cada mujer será el hombre que tenga los valores más similares a ella en las variables elegidas. A continuación se muestra una tabla con las variables para el *matching*.
+
+```{r,tabla2}
+a<-c("EDAD","REGION","TLOC","P1_1","NIV","P3_5","P3_8A","P3_8B","P3_9","P3_2","P3_12","P4_1","P13_1","P13_2_1","P3_1","P3_3")
+b<-c("Edad del entrevistado","Región donde habita","Tamaño de la localidad","Cantidad de personas con las que cohabita","Grado de escolaridad","Ocupación en el mes anterior","Remuneración por actividades laborales","Temporalidad de remuneración(semanal, quincenal, mensual o anual)","Ingreso fijo o variable","Estado civil","Tenencia de celular","Si el entrevistado lleva un presupuesto o un registro de sus ingresos y gastos","Sobre el proceso de toma de decisiones en el hogar","Si el entrevistado es propietario de algún inmueble","Relación con el jefe de familia","Cantidad de personas que dependen del entrevistado")
+
+c<-data.frame(a,b)
+
+kable(c,booktabs=T, col.names = c("Variable", "Descripción"),  digits = 2,caption= "Variables empleadas para el pareo") %>% add_footnote(c("Las variables de remuneración (P2_8A) y temporalidad de esta (P2_8B) solo se usaron para crear una nueva variable sobre ingreso anual la cuál sí es comparable entre entrevistados."))
+
+
+```
+
+
+
+# Resultados
+
+## Comparación de medias simple
+
+En primer lugar, creamos la comparación de medias simple para que sirva de punto de referencia para las demás estimaciones. En la tabla podemos observar que el 54% de los hombres tiene un AFORE frente al 33% de las mujeres; 29% un crédito o tarjeta de crédito frente al 28%; el 49% una cuenta bancaria frente al 38%; y el 29% algún seguro frente al 21% de las mujeres. De esta tabla podemos concluir que bajo la comparación de medias simple las mujeres están rezagadas en mayor o menor medida en las 4 variables de interés, siendo la tenencia de AFORE la diferencia más grande con 21 puntos porcentuales. Asimismo, en cuanto a tenencia de crédito o tarjeta de crédito la diferencia es de tan solo 1 punto porcentual y no es estadísticamente significativa.
+
+```{r, limpieza1}
+#importo mis datos
+data1<-read.dbf("enif_2018/tmodulo.dbf", as.is = FALSE)
+data2<-read.dbf("enif_2018/tmodulo2.dbf", as.is = FALSE)
+individuos<-read.dbf("enif_2018/tsdem.dbf", as.is = FALSE)
+viviendas<-read.dbf("enif_2018/tvivienda.dbf", as.is = FALSE)
+
+#Creo el dataframe final
+
+#junto los dos datasets principales
+core_data<-merge(data1, data2, by  = c("UPM","VIV_SEL","HOGAR","N_REN"))
+
+#truco biclicetero
+subset<-core_data%>%select(UPM,VIV_SEL,HOGAR,N_REN)
+#junto los dos datasets auxiliares
+socio_demograficos<-merge(individuos, viviendas, by = c("UPM","VIV_SEL","REGION","EST_DIS","UPM_DIS","REGION","TLOC"))
+#filtro el dataset auxiliar solo con las observaciones que están en los datasets principales
+aux_merge<-merge(socio_demograficos, subset, by  = c("UPM","VIV_SEL","HOGAR","N_REN"))
+
+#dataframe final listo para usarse
+data<-merge(aux_merge, core_data, by  = c("UPM","VIV_SEL","HOGAR","N_REN"))
+
+#Limpieza
+data$P8_1[data$P8_1==9] <- 2
+data$P9_1[data$P9_1==9] <- 2
+data<-data %>% mutate (SEXO=ifelse(SEXO == '2',1,0))
+
+data$P5_4 <- as.character(data$P5_4)
+data$P5_4 <- as.numeric(data$P5_4)
+
+data$P6_3 <- as.character(data$P6_3)
+data$P6_3 <- as.numeric(data$P6_3)
+
+data$P8_1 <- as.character(data$P8_1)
+data$P8_1 <- as.numeric(data$P8_1)
+
+data$P9_1 <- as.character(data$P9_1)
+data$P9_1 <- as.numeric(data$P9_1)
+
+data<-data %>% mutate (P5_4=ifelse(P5_4 == 1,1,0),
+                       P6_3=ifelse(P6_3 == 1,1,0),
+                       P8_1=ifelse(P8_1 == 1,1,0),
+                       P9_1=ifelse(P9_1 == 1,1,0)
+                       )
+```
+
+
+```{r, balance ingenuo}
+
+# A) información personal
+balance <- data %>% select(SEXO, P5_4, P6_3, P8_1,P9_1)  %>% rename('Cuenta' = P5_4, 'Crédito' = P6_3 ,'Seguro' = P8_1, 'AFORE' = P9_1 )
+
+# Creo las tablas de balance
+bt_personal <- balance_table(balance, treatment = "SEXO")  %>%  
+  mutate(dif=Media_control1-Media_trat1)%>% 
+  select(variables1, Media_control1,Media_trat1, dif, p_value1)
+kable(bt_personal, booktabs=T,  col.names =c("Variables","Media hombres","Media mujeres","Diferencia","Valor p"), digits = 2, caption= "Diferencia de medias en ENIF 2018")%>%add_footnote(c("Se comparó la respuesta 'Sí' frente a 'No' y 'No sabe' y 'No contestó'","Datos de 6807 mujeres y 5639 hombres"))
+```
+En las siguientes secciones estimaremos la diferencia de medias mediante el pareo de observaciones, primero asignando una pareja a cada mujer de la ENIF y luego, asignando una pareja para cada hombre. De esta manera evaluaremos la diferencia de medias entre las mujeres y su contrafactual; y posteriormente, entre los hombres y el suyo.
+
+## Detección de sesgo en valores faltantes de la ENIF
+
+Antes de proceder a la estimación final, cabe recalcar que las variables que podemos encontrar en la ENIF 2018 muchas veces vienen con una gran cantidad de valores faltantes. En este caso, una cantidad considerable de observaciones de mujeres carecían de información relacionada a ingreso, una variable muy importante para el pareo que se propuso, Por ello, a continuación se muestran las estimaciones para el pareo de mujeres y hombres omitiendo las observaciones con valores faltantes.
+
+```{r, limpieza2}
+#limpieza para pscore
+
+cov<-data%>%select(SEXO, P5_4, P6_3, P8_1,P9_1,EDAD,REGION,TLOC,P1_1,NIV,P3_5,P3_8A,P3_8B,P3_9,P3_2
+                   ,P3_12,P4_1,P13_1,P13_2_1,P3_1,P3_3)
+#cambio la temporalidad del ingreso para calcular salario anual
+
+cov$EDAD <- as.character(cov$EDAD)
+cov$EDAD <- as.numeric(cov$EDAD)
+
+cov$P3_8B <- as.character(cov$P3_8B)
+cov$P3_8B <- as.numeric(cov$P3_8B)
+cov$P3_8A <- as.character(cov$P3_8A)
+cov$P3_8A <- as.numeric(cov$P3_8A)
+cov$P3_8B[is.na(data$P3_8B)] <- 0
+cov$P3_8A[is.na(data$P3_8A)] <- 0
+
+cov$P3_8B[data$P3_8B==1] <- 52
+cov$P3_8B[data$P3_8B==2] <- 26
+cov$P3_8B[data$P3_8B==3] <- 12
+cov$P3_8B[data$P3_8B==4] <- 1
+
+
+
+cov<-cov%>%mutate(salario_anual=P3_8A*P3_8B) %>%
+  select(SEXO, P5_4, P6_3, P8_1,P9_1,EDAD,REGION,TLOC,P1_1,NIV,P3_5,P3_9,P3_2,salario_anual,P3_12,P4_1,P13_1,P13_2_1,P3_1,P3_3) %>% na.omit()
+
+#personas que viven en la vivienda
+cov$P1_1 <- as.character(cov$P1_1)
+cov$P1_1 <- as.numeric(cov$P1_1)
+cov$P1_1[is.na(cov$P1_1)] <- 0
+
+
+#limpiezas de NAs, los agruparemos en la etiqueta 0
+#cov$P3_9 <- as.character(cov$P3_9)
+#cov$P3_9[is.na(data$P3_9)] <- 0
+#cov$P3_9 <- as.factor(cov$P3_9)
+
+#cov$P3_7 <- as.character(cov$P3_7)
+#cov$P3_7[is.na(data$P3_7)] <- 0
+#cov$P3_7 <- as.factor(cov$P3_7)
+
+
+#Ahora transformamos dummies
+cov<-dummy_cols(cov,select_columns=c("REGION","TLOC","NIV","P3_5","P3_9","P3_2"), remove_first_dummy = T,remove_selected_columns = T)
+
+```
+
+
+```{r, matchit }
+
+#hago match
+mod_match<-matchit(SEXO~. - P5_4 - P6_3 - P8_1 -P9_1,method="nearest",replace=T,data=cov)
+dta_m<-match.data(mod_match)
+#summary
+#summary(mod_match)
+```
+
+```{r,tabla,matchit }
+balance <- dta_m %>% select(SEXO,P5_4, P6_3, P8_1,P9_1)  %>% rename('Cuenta' = P5_4, 'Crédito' = P6_3 ,'Seguro' = P8_1, 'AFORE' = P9_1 )
+# Creo las tablas de balance
+bt_personal <- balance_table(balance, treatment = "SEXO") %>% 
+  mutate(dif=Media_control1-Media_trat1)%>%
+  select(variables1, Media_control1,Media_trat1, dif, p_value1)
+
+
+kable(bt_personal, booktabs=T,  col.names =c("Variables","Media hombres","Media mujeres","Diferencia","Valor p"), digits = 2, caption= "Diferencia de medias en ENIF 2018 con pareo para mujeres")%>%add_footnote(c("Datos de 3303 mujeres y sus parejas provenientes de 1150 hombres", "Se perdieron 2336 observaciones de mujeres debido a que no hay información en la encuesta sobre su ingreso, periodicidad del ingreso y/o si es un ingreso fijo o variable"))
+```
+
+
+```{r, limpieza_hombres_2}
+data<-data %>% mutate (SEXO=ifelse(SEXO == '1',0,1))
+
+#limpieza para pscore
+cov<-data%>%select(SEXO, P5_4, P6_3, P8_1,P9_1,EDAD,REGION,TLOC,P1_1,NIV,P3_5,P3_8A,P3_8B,P3_9,P3_2,
+                   P3_12,P4_1,P13_1,P13_2_1,P3_1,P3_3)
+#cambio la temporalidad del ingreso para calcular salario anual
+
+cov$EDAD <- as.character(cov$EDAD)
+cov$EDAD <- as.numeric(cov$EDAD)
+
+cov$P3_8B <- as.character(cov$P3_8B)
+cov$P3_8B <- as.numeric(cov$P3_8B)
+cov$P3_8A <- as.character(cov$P3_8A)
+cov$P3_8A <- as.numeric(cov$P3_8A)
+cov$P3_8B[is.na(data$P3_8B)] <- 0
+cov$P3_8A[is.na(data$P3_8A)] <- 0
+
+cov$P3_8B[data$P3_8B==1] <- 52
+cov$P3_8B[data$P3_8B==2] <- 26
+cov$P3_8B[data$P3_8B==3] <- 12
+cov$P3_8B[data$P3_8B==4] <- 1
+
+
+
+cov<-cov%>%mutate(salario_anual=P3_8A*P3_8B) %>%
+  select(SEXO, P5_4, P6_3, P8_1,P9_1,EDAD,REGION,TLOC,P1_1,NIV,P3_5,P3_9,P3_2,salario_anual,P3_12,P4_1,P13_1,P13_2_1,P3_1,P3_3) %>% na.omit()
+
+#personas que viven en la vivienda
+cov$P1_1 <- as.character(cov$P1_1)
+cov$P1_1 <- as.numeric(cov$P1_1)
+cov$P1_1[is.na(cov$P1_1)] <- 0
+
+
+#limpiezas de NAs, los agruparemos en la etiqueta 0
+#cov$P3_9 <- as.character(cov$P3_9)
+#cov$P3_9[is.na(data$P3_9)] <- 0
+#cov$P3_9 <- as.factor(cov$P3_9)
+
+#cov$P3_7 <- as.character(cov$P3_7)
+#cov$P3_7[is.na(data$P3_7)] <- 0
+#cov$P3_7 <- as.factor(cov$P3_7)
+
+
+#Ahora transformamos dummies
+cov<-dummy_cols(cov,select_columns=c("REGION","TLOC","NIV","P3_5","P3_9","P3_2"), remove_first_dummy = T,remove_selected_columns = T)
+```
+
+
+```{r }
+
+#hago match
+mod_match<-matchit(SEXO~. - P5_4 - P6_3 - P8_1 -P9_1,method="nearest",replace = TRUE,data=cov)
+dta_m<-match.data(mod_match)
+#summary(mod_match)
+```
+
+```{r }
+balance <- dta_m %>% select(SEXO,P5_4, P6_3, P8_1,P9_1)  %>% rename('Cuenta' = P5_4, 'Crédito' = P6_3 ,'Seguro' = P8_1, 'AFORE' = P9_1 )
+
+# Creo las tablas de balance
+bt_personal <- balance_table(balance, treatment = "SEXO")  %>%  
+  mutate(dif=Media_trat1-Media_control1)%>%
+  select(variables1,Media_trat1, Media_control1,dif, p_value1)
+
+kable(bt_personal, booktabs=T,  col.names =c("Variables","Media hombres","Media mujeres","Diferencia","Valor p"), digits = 2, caption= "Diferencia de medias en ENIF 2018 con pareo para hombres")%>%add_footnote(c("Datos de 4471 hombres y sus parejas provenientes de solo 1161 mujeres ", "Se perdieron 1168 observaciones de hombres debido a que no hay información en la encuesta sobre su ingreso, periodicidad del ingreso y/o si es un ingreso fijo o variable"))
+```
+
+
+````{r}
+e<-c("AFORE","Crédito","Seguro","Cuenta")
+ing<-c(0.21,0.01,0.08,0.11)
+muj<-c(0.10,-0.05,0.00,0.03)
+hom<-c(0.10,-0.04,0.03,-0.02)
+tabla<-data.frame(e,ing,muj,hom)
+
+kable(tabla, booktabs=T,  col.names =c("Variables","Sencilla","Pareo mujeres","Pareo hombres"), caption= "Diferencia de medias dependiendo el enfoque (observaciones con valores faltantes omitidas)")
+
+`````
+
+En primer lugar notamos, que bajo esta especificación de pareo, la discriminación se reduce considerablemente en todas las variables e incluso desaparece o se voltea de signo, indicando que las mujeres tienen mayor acceso que los hombres *ceteris paribus*. La única variable en la que la diferencia sigue siendo de tamaño considerable, y en contra de las mujeres, es la tenencia de AFORE que disminuyó de 21 puntos a tan solo 10 puntos. 
+
+En segundo lugar, notamos que se perdieron proporcional y absolutamente más observaciones de mujeres. Esto es una buena y una mala noticia, Por un lado, quiere decir que identificamos un sesgo en los datos de la ENIF: de manera sistemática, las mujeres reportaron menos respuestas. El mejor escenario para nuestras estimaciones sería que dicho menos reporte no estuviera correlacionado con variables sociodemográficas ni con las variables de inclusión financiera. Es decir, si salvo por el componente de género, el menos reporte fue aleatorio, entonces nuestras estimaciones seguirían siendo insesgadas.
+
+Ahora, si dicho sesgo sí está correlacionado con las variables que utilizamos para el pareo y/o con las variables de inclusión financiera, entonces nuestras estimaciones estarían sesgadas. Pudiera ser el caso que las mujeres que no reportaron datos también son las mujeres con menores ingresos y menor acceso al sistema financiero. Para evaluar esto, estimamos una regresión entre cada una de las variables de inclusión financiera y la ocurrencia de valores faltantes para datos de ingreso.
+
+
+````{r, results='asis'}
+data<-data %>% mutate (SEXO=ifelse(SEXO == '1',0,1))
+
+#limpieza para pscore
+cov<-data%>%select(SEXO, P5_4, P6_3, P8_1,P9_1,P3_8B,P3_8A)
+#cambio la temporalidad del ingreso para calcular salario anual
+
+cov$P3_8B <- as.character(cov$P3_8B)
+cov$P3_8B <- as.numeric(cov$P3_8B)
+cov$P3_8A <- as.character(cov$P3_8A)
+cov$P3_8A <- as.numeric(cov$P3_8A)
+cov$P3_8B[is.na(data$P3_8B)] <- 0
+cov$P3_8A[is.na(data$P3_8A)] <- 0
+
+cov$P3_8B[data$P3_8B==1] <- 52
+cov$P3_8B[data$P3_8B==2] <- 26
+cov$P3_8B[data$P3_8B==3] <- 12
+cov$P3_8B[data$P3_8B==4] <- 1
+cov<-cov%>% mutate(salario_anual=P3_8A*P3_8B) %>%
+  mutate(na=ifelse(salario_anual==0,1,0))
+
+nas<-cov%>%filter(na==1)
+
+a<-c("1,168","25%")
+b<-c("3,504","75%")
+c<-c("4,672","100%")
+d<-c("Absoluta","Relativa")
+e<-data.frame(d,a,b,c)
+kable(e, booktabs=T,  col.names =c("Frecuencia","Hombres","Mujeres","Total"), caption= "Valores faltantes en variables relacionadas con ingreso")
+`````
+
+````{r, hombres nas}
+
+a<-lm(P5_4~na,cov[cov$SEXO==1,])
+b<-lm(P6_3~na,cov[cov$SEXO==1,])
+c<-lm(P8_1~na,cov[cov$SEXO==1,])
+d<-lm(P9_1~na,cov[cov$SEXO==1,])
+
+#stargazer(a,b,c,d, type="latex",header = F,  title  = "Regresión entre valores faltantes y variables de #interés para mujeres",dep.var.caption = "",
+#          dep.var.labels = c("Cuenta","Crédito","Seguro","Afore"),
+#          covariate.labels = c("Valores faltantes"))
+
+`````
+
+\begin{table}[!htbp] \centering 
+  \caption{Regresión entre valores faltantes y variables de interés para mujeres} 
+  \label{} 
+\begin{tabular}{@{\extracolsep{5pt}}lcccc} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+\\[-1.8ex] & Cuenta & Crédito & Seguro & Afore \\ 
+\\[-1.8ex] & (1) & (2) & (3) & (4)\\ 
+\hline \\[-1.8ex] 
+ Valores faltantes & $-$0.259$^{***}$ & $-$0.132$^{***}$ & $-$0.113$^{***}$ & $-$0.263$^{***}$ \\ 
+  & (0.011) & (0.011) & (0.010) & (0.011) \\ 
+  & & & & \\ 
+ Constante & 0.512$^{***}$ & 0.351$^{***}$ & 0.272$^{***}$ & 0.469$^{***}$ \\ 
+  & (0.008) & (0.008) & (0.007) & (0.008) \\ 
+  & & & & \\ 
+\hline \\[-1.8ex] 
+Observaciones & 6,807 & 6,807 & 6,807 & 6,807 \\ 
+R$^{2}$ & 0.071 & 0.022 & 0.019 & 0.078 \\ 
+R$^{2}$ ajustada & 0.071 & 0.021 & 0.019 & 0.078 \\ 
+Error estandar residual (gl = 6805) & 0.467 & 0.446 & 0.406 & 0.453 \\ 
+Estadístico F (gl = 1; 6805) & 523.713$^{***}$ & 149.830$^{***}$ & 132.089$^{***}$ & 574.494$^{***}$ \\ 
+\hline 
+\hline \\[-1.8ex] 
+\textit{Nota:}  & \multicolumn{4}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+\end{tabular} 
+\end{table} 
+
+````{r mujeres nas}
+a<-lm(P5_4~na,cov[cov$SEXO==0,])
+b<-lm(P6_3~na,cov[cov$SEXO==0,])
+c<-lm(P8_1~na,cov[cov$SEXO==0,])
+d<-lm(P9_1~na,cov[cov$SEXO==0,])
+
+#stargazer(a,b,c,d, type="latex",header = F,  title = "Regresión entre valores faltantes y variables de interés para hombres", dep.var.caption = "",
+#          dep.var.labels = c("Cuenta","Crédito","Seguro","Afore"),
+#          covariate.labels = c("Valores faltantes"))
+`````
+
+
+\begin{table}[!htbp] \centering 
+  \caption{Regresión entre valores faltantes y variables de interés para hombres} 
+  \label{} 
+\begin{tabular}{@{\extracolsep{5pt}}lcccc} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+\\[-1.8ex] & Cuenta & Crédito & Seguro & Afore \\ 
+\\[-1.8ex] & (1) & (2) & (3) & (4)\\ 
+\hline \\[-1.8ex] 
+ Valores faltantes & $-$0.054$^{***}$ & $-$0.055$^{***}$ & $-$0.028$^{*}$ & $-$0.221$^{***}$ \\ 
+  & (0.016) & (0.015) & (0.015) & (0.016) \\ 
+  & & & & \\ 
+ Constante & 0.504$^{***}$ & 0.305$^{***}$ & 0.300$^{***}$ & 0.586$^{***}$ \\ 
+  & (0.007) & (0.007) & (0.007) & (0.007) \\ 
+  & & & & \\ 
+\hline \\[-1.8ex] 
+Observaciones & 5,639 & 5,639 & 5,639 & 5,639 \\ 
+R$^{2}$ & 0.002 & 0.002 & 0.001 & 0.032 \\ 
+R$^{2}$ ajustada & 0.002 & 0.002 & 0.0004 & 0.032 \\ 
+Error estandar residual (gl) & 0.500 & 0.455 & 0.456 & 0.490 \\ 
+Estadístico F (gl = 1; 5637) & 10.650$^{***}$ & 13.788$^{***}$ & 3.525$^{*}$ & 187.900$^{***}$ \\ 
+\hline 
+\hline \\[-1.8ex] 
+\textit{Nota:}  & \multicolumn{4}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+\end{tabular} 
+\end{table} 
+
+Lo que podemos observar es que tanto para hombres como para mujeres existe una relación negativa estadísticamente significativa entre la presencia de valores faltantes y las variables de inclusión financiera.  Sin embargo, en el caso de las mujeres, la relación es mucho más fuerte. Por ejemplo, el solo hecho de no haber brindado ninguna información de ingreso disminuye la probabilidad de tener cuenta en 25.9 puntos porcentuales para mujeres y 5.4 en hombres; la de tener crédito en 13.2 para mujeres y 5.5 en hombres; la de tener algún seguro en 11.3 para mujeres y 2.8 para hombres; y finalmente, la de contar con un AFORE en 26.3 para mujeres y 22.1  para hombres.
+
+Esto quiere decir que nuestra estimación de pareo, al omitir las observaciones con valores faltantes en el ingreso, está ignorando desproporcionadamente más a las mujeres excluidas financieramente que a los hombres y en consecuencia está estimando de manera muy optimista la diferencia de medias: la estimación está sesgada
+
+## Estimación con matching con la ENIF completa
+
+Habiendo detectado un sesgo en la información, el siguiente paso es corregir. En este sentido, al haber identificado que las personas que no respondieron información en realidad son mujeres y hombres con mayor probabilidad de ser financieramente excluidos, les imputamos un ingreso de 0 (lo cual no tiene sentido económico pero tiene sentido para el pareo pues mujeres con ingreso cero encontrarán ahora su contraparte en hombres quienes también tengan ingreso 0 y las demás variables sociodemográficas similares).
+
+
+```{r}
+#limpieza para pscore
+cov<-data%>%select(SEXO, P5_4, P6_3, P8_1,P9_1,EDAD,REGION,TLOC,P1_1,NIV,P3_5,P3_8A,P3_8B,P3_9,P3_2,P3_12,P4_1,P13_1,P13_2_1,P3_1,P3_3)
+#cambio la temporalidad del ingreso para calcular salario anual
+cov$EDAD <- as.character(cov$EDAD)
+cov$EDAD <- as.numeric(cov$EDAD)
+
+cov$P3_8B <- as.character(cov$P3_8B)
+cov$P3_8B <- as.numeric(cov$P3_8B)
+cov$P3_8A <- as.character(cov$P3_8A)
+cov$P3_8A <- as.numeric(cov$P3_8A)
+cov$P3_8B[is.na(data$P3_8B)] <- 0
+cov$P3_8A[is.na(data$P3_8A)] <- 0
+
+cov$P3_8B[data$P3_8B==1] <- 52
+cov$P3_8B[data$P3_8B==2] <- 26
+cov$P3_8B[data$P3_8B==3] <- 12
+cov$P3_8B[data$P3_8B==4] <- 1
+
+cov<-cov%>%mutate(salario_anual=P3_8A*P3_8B) %>%
+  select(SEXO, P5_4, P6_3, P8_1,P9_1,EDAD,REGION,TLOC,P1_1,NIV,P3_5,P3_9,P3_2,salario_anual,P3_12,P4_1,P13_1,P13_2_1,P3_1,P3_3)  
+
+#personas que viven en la vivienda
+cov$P1_1 <- as.character(cov$P1_1)
+cov$P1_1 <- as.numeric(cov$P1_1)
+cov$P1_1[is.na(cov$P1_1)] <- 0
+
+
+#limpiezas de NAs, los agruparemos en la etiqueta 0
+cov$P3_9 <- as.character(cov$P3_9)
+cov$P3_9[cov$P3_9==2] <- 0
+cov$P3_9[is.na(cov$P3_9)] <- 0
+cov$P3_9 <- as.factor(cov$P3_9)
+
+#Ahora transformamos dummies
+cov<-dummy_cols(cov,select_columns=c("REGION","TLOC","NIV","P3_5","P3_9","P3_2"), remove_first_dummy = T,remove_selected_columns = T)
+```
+
+
+```{r }
+#hago match
+mod_match<-matchit(SEXO~. - P5_4 - P6_3 - P8_1 -P9_1,method="nearest",replace=T,data=cov)
+dta_m<-match.data(mod_match)
+#summary
+#summary(mod_match)
+```
+
+```{r }
+balance <- dta_m %>% select(SEXO,P5_4, P6_3, P8_1,P9_1)  %>% rename('Cuenta' = P5_4, 'Crédito' = P6_3 ,'Seguro' = P8_1, 'AFORE' = P9_1 )
+
+# Creo las tablas de balance
+bt_personal <- balance_table(balance, treatment = "SEXO") %>% 
+  mutate(dif=Media_control1-Media_trat1)%>%
+  select(variables1, Media_control1,Media_trat1, dif, p_value1)
+
+
+kable(bt_personal, booktabs=T,  col.names =c("Variables","Media hombres","Media mujeres","Diferencia","Valor p"), digits = 2, caption= "Diferencia de medias en ENIF 2018 con pareo para mujeres")%>%add_footnote(c("Datos de 6807 mujeres y sus parejas provenientes de 1591 hombres"))
+```
+
+
+
+```{r, limpieza_hombres}
+data<-data %>% mutate (SEXO=ifelse(SEXO == '1',0,1))
+
+#limpieza para pscore
+cov<-data%>%select(SEXO, P5_4, P6_3, P8_1,P9_1,EDAD,REGION,TLOC,P1_1,NIV,P3_5,P3_8A,P3_8B,P3_9,P3_2,P3_12,P4_1,P13_1,P13_2_1,P3_1,P3_3)
+#cambio la temporalidad del ingreso para calcular salario anual
+
+cov$EDAD <- as.character(cov$EDAD)
+cov$EDAD <- as.numeric(cov$EDAD)
+
+cov$P3_8B <- as.character(cov$P3_8B)
+cov$P3_8B <- as.numeric(cov$P3_8B)
+cov$P3_8A <- as.character(cov$P3_8A)
+cov$P3_8A <- as.numeric(cov$P3_8A)
+cov$P3_8B[is.na(data$P3_8B)] <- 0
+cov$P3_8A[is.na(data$P3_8A)] <- 0
+
+cov$P3_8B[data$P3_8B==1] <- 52
+cov$P3_8B[data$P3_8B==2] <- 26
+cov$P3_8B[data$P3_8B==3] <- 12
+cov$P3_8B[data$P3_8B==4] <- 1
+
+
+
+cov<-cov%>%mutate(salario_anual=P3_8A*P3_8B) %>%
+  select(SEXO, P5_4, P6_3, P8_1,P9_1,EDAD,REGION,TLOC,P1_1,NIV,P3_5,P3_9,P3_2,salario_anual,P3_12,P4_1,P13_1,P13_2_1,P3_1,P3_3)
+#personas que viven en la vivienda
+cov$P1_1 <- as.character(cov$P1_1)
+cov$P1_1 <- as.numeric(cov$P1_1)
+cov$P1_1[is.na(cov$P1_1)] <- 0
+
+
+#limpiezas de NAs, los agruparemos en la etiqueta 0
+cov$P3_9 <- as.character(cov$P3_9)
+cov$P3_9[cov$P3_9==2] <- 0
+cov$P3_9[is.na(cov$P3_9)] <- 0
+cov$P3_9 <- as.factor(cov$P3_9)
+
+
+#Ahora transformamos dummies
+cov<-dummy_cols(cov,select_columns=c("REGION","TLOC","NIV","P3_5","P3_9","P3_2"), remove_first_dummy = T,remove_selected_columns = T)
+```
+
+
+```{r }
+
+#hago match
+mod_match<-matchit(SEXO~. - P5_4 - P6_3 - P8_1 -P9_1,method="nearest",replace = TRUE,data=cov)
+dta_m<-match.data(mod_match)
+#summary(mod_match)
+```
+
+```{r }
+balance <- dta_m %>% select(SEXO,P5_4, P6_3, P8_1,P9_1) %>% rename('Cuenta' = P5_4, 'Crédito' = P6_3 ,'Seguro' = P8_1, 'AFORE' = P9_1 )
+
+# Creo las tablas de balance
+bt_personal <- balance_table(balance, treatment = "SEXO")  %>%  
+  mutate(dif=Media_trat1-Media_control1)%>%
+  select(variables1,Media_trat1, Media_control1,dif, p_value1)
+
+kable(bt_personal, booktabs=T,  col.names =c("Variables","Media hombres","Media mujeres","Diferencia","Valor p"), digits = 2, caption= "Diferencia de medias en ENIF 2018 con pareo para hombres")%>%add_footnote(c("Datos de 5639 hombres y sus parejas provenientes de solo 1590 mujeres "))
+```
+
+
+````{r}
+e<-c("AFORE","Crédito","Seguro","Cuenta")
+ing<-c(0.21,0.01,0.08,0.11)
+muj<-c(0.18,0.00,0.07,0.13)
+hom<-c(0.12,-0.02,0.03,0.00)
+tabla<-data.frame(e,ing,muj,hom)
+
+kable(tabla, booktabs=T,  col.names =c("Variables","Sencilla","Pareo mujeres","Pareo hombres"), caption= "Diferencia de medias dependiendo el enfoque")
+
+`````
+
+En esta última tabla podemos notar la diferencia de medias dependiendo cada enfoque. En cuanto a tenencia de AFORE, notamos que la comparación sencilla está sobrestimando el efecto de la discriminación desde en 3 hasta en 9 puntos porcentuales, aunque el efecto de la discriminación es sin duda positivo y de almenos 12 puntos porcentuales. 
+
+En cuanto a la tenencia de algún crédito o tarjeta de crédito encontramos que no hay un efecto discriminatorio en contra de las mujeres bajo ninguna métrica pues en ninguna de las comparaciones la diferencia es diferente a 0 de manera estadísticamente significativa.
+
+En cuanto a tenencia de algún seguro notamos que sí hay un efecto de discriminación de almenos 3 puntos porcentuales sin embargo la diferencia de medias simple está sobrestimando el efecto real desde en 1 punto hasta en 5 puntos porcentuales.
+
+Finalmente en cuanto a tenencia de cuenta bancaria notamos que el efecto no es claro. Mientras que el pareo de mujeres parece indicar que la diferencia de medias sencilla está subestimando la discriminación, la diferencia en el pareo de hombres indica que no hay un efecto de discriminación. Esto quiere decir que la discriminación en el acceso a una cuenta bancaria de las mujeres con respecto a sus contrafacutales hombres depende mucho de donde se encuentren en la distribución de características sociodemográficas y que dicha diferencia va desde 13 puntos hasta 0 puntos porcentuales.
+
+
+# Conclusión
+
+En conclusión, se encontró  que existe un sesgo en contra de las mujeres en cuanto a los valores faltantes en la ENIF con respecto a información relacionada con ingreso y otras variables de interés en el tema de inclusión, particularmente contra las mujeres rezagadas en la inclusión financiera. Este es un hallazgo importante a considerar para los investigadores interesados en sesgos muestrales, aquellos que trabajen con modelos econométricos estimados a partir de la ENIF 2018, estudiantes, investigadores y otros usuarios de la encuesta y para los diseñadores e implementadores mismos de la encuesta.
+
+Asimismo, se encontró que el género es todavía un factor determinante en el acceso a servicios y productos financieros, sobretodo en la tenencia de un fondo de ahorro para el retiro, sin embargo, encontramos que la diferencia de medias simple en general sobrestima el efecto atribuible al sector financiero de la discrminación (salvo en cuanto a la tenencia de cuenta bancaria en donde no es claro si se sobrestima o se subestima).
+
+# Referencias
+
+
+
+

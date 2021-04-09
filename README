@@ -1,0 +1,16 @@
+README:
+
+This is a sample code of an essay about gender financial inclusion in Mexico. It was written to compete for the CNBV (mexican finantial regulator) Essay Prize 2021, so naturally its an essay written in spanish. In this essay I analize the National Finantial Inclusion Survey with a matching approach in order to detect the possible bias when attempting to measure gender discrimination in finantial inclusion. The essay is in a specific format for the competition and the statistical work, citation and format is automated and replicable.
+
+FILES:
+
+enif_2018<-----------------National Finantial Inclusion Survey DATA
+ENIF.bib<------------------Bibliography
+gender_matching_essay.Rmd<-Working document in R
+gender_matching_essay.pdf<-Output of the working document
+mi_chicago.csl<------------Rules for citation in Chicago Style in spanish
+
+
+You can also find this file in my Github page:  
+https://github.com/marcoyel21/ensayo_cnbv
+https://github.com/marcoyel21
